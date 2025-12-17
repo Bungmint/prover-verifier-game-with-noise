@@ -10,6 +10,8 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+import wandb
+
 from pvg.noise import inject_label_noise
 
 logger = logging.getLogger(__name__)
@@ -46,6 +48,7 @@ class StackelbergTrainer:
         self.verifier.to(self.device)
 
         self.history: Dict[str, list] = {"train": [], "eval": []}
+        self.use_wandb = getattr(config, "use_wandb", False)
 
     def _get_batch(self) -> tuple[torch.Tensor, torch.Tensor]:
         """Get next batch, cycling through dataset."""
@@ -95,6 +98,14 @@ class StackelbergTrainer:
                     f"  Eval: acc={eval_metrics['accuracy']:.3f}, "
                     f"clean_loss={eval_metrics['clean_loss']:.4f}"
                 )
+                
+                if self.use_wandb:
+                    wandb.log({
+                        "eval/clean_loss": eval_metrics["clean_loss"],
+                        "eval/accuracy": eval_metrics["accuracy"],
+                        "eval/prover_success_rate": eval_metrics["prover_success_rate"],
+                        "round": round_t,
+                    })
 
         return self.history
 
@@ -195,6 +206,13 @@ class StackelbergTrainer:
         })
 
         logger.info(f"Round {round_t}: P_loss={avg_p:.4f}, V_loss={avg_v:.4f}")
+        
+        if self.use_wandb:
+            wandb.log({
+                "train/prover_loss": avg_p,
+                "train/verifier_loss": avg_v,
+                "round": round_t,
+            })
 
     def save_checkpoint(self, path: str) -> None:
         torch.save({

@@ -1,7 +1,7 @@
 """Configuration dataclasses for PVG experiments."""
 
 from dataclasses import dataclass, field, asdict
-from typing import Literal
+from typing import Literal, Optional
 import json
 
 import torch
@@ -29,6 +29,10 @@ class ExperimentConfig:
     device: str = field(
         default_factory=lambda: "cuda" if torch.cuda.is_available() else "cpu"
     )
+
+    use_wandb: bool = False
+    wandb_project: str = "prover-verifier-game"
+    wandb_entity: Optional[str] = None
 
     def to_dict(self) -> dict:
         return asdict(self)

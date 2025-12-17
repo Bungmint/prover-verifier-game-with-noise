@@ -3,6 +3,7 @@ Run a single synthetic PVG experiment.
 
 Usage:
     uv run python -m experiments.synthetic.run_experiment --epsilon 0.0 --seed 42
+    uv run python -m experiments.synthetic.run_experiment --epsilon 0.1 --seed 42 --wandb
 """
 
 import argparse
@@ -14,6 +15,8 @@ import torch
 
 from pvg.config import SyntheticConfig
 from pvg.models import create_mlp_models
+import wandb
+
 from pvg.training import StackelbergTrainer
 from experiments.synthetic.linear_f2 import create_dataloaders
 
@@ -26,6 +29,15 @@ def run_experiment(config: SyntheticConfig) -> dict:
     torch.manual_seed(config.seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(config.seed)
+
+    if config.use_wandb:
+        wandb.init(
+            project=config.wandb_project,
+            entity=config.wandb_entity,
+            name=config.experiment_name,
+            config=config.to_dict(),
+            tags=["synthetic", f"eps{config.epsilon}"],
+        )
 
     logger.info(f"Running experiment: {config.experiment_name}")
     logger.info(f"  epsilon={config.epsilon}, seed={config.seed}, device={config.device}")
@@ -83,6 +95,15 @@ def run_experiment(config: SyntheticConfig) -> dict:
         json.dump(results, f, indent=2)
 
     logger.info(f"Results saved to {output_path}")
+
+    if config.use_wandb:
+        wandb.log({
+            "final/clean_loss": final_metrics["clean_loss"],
+            "final/accuracy": final_metrics["accuracy"],
+            "final/prover_success_rate": final_metrics["prover_success_rate"],
+        })
+        wandb.finish()
+    
     return results
 
 
@@ -102,6 +123,9 @@ def main() -> None:
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--log_every", type=int, default=10)
     parser.add_argument("--eval_every", type=int, default=20)
+    parser.add_argument("--wandb", action="store_true", help="Enable wandb tracking")
+    parser.add_argument("--wandb_project", type=str, default="prover-verifier-game")
+    parser.add_argument("--wandb_entity", type=str, default=None)
 
     args = parser.parse_args()
 
@@ -123,6 +147,9 @@ def main() -> None:
         batch_size=args.batch_size,
         log_every=args.log_every,
         eval_every=args.eval_every,
+        use_wandb=args.wandb,
+        wandb_project=args.wandb_project,
+        wandb_entity=args.wandb_entity,
     )
 
     run_experiment(config)

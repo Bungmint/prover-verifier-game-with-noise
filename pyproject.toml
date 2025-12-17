@@ -24,6 +24,9 @@ dependencies = [
     # Utilities
     "tqdm>=4.65.0",
     "scipy>=1.10.0",
+    
+    # Experiment tracking
+    "wandb>=0.16.0",
 ]
 
 [project.optional-dependencies]
